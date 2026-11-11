@@ -23,7 +23,8 @@ openblas_complex_float cblas_cdotu(
         if(_g_cblas_cdotu==NULL) {
             HANDLE hStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
             WriteConsole(hStdOut, msg_function_not_found, sizeof(msg_function_not_found), NULL, NULL);
-            return 0;
+            openblas_complex_float result = {0};
+            return result;
         }
     }
     return _g_cblas_cdotu(

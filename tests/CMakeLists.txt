@@ -1,29 +1,16 @@
-cmake_minimum_required(VERSION 3.14)
-
-set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-file(GLOB_RECURSE testfiles RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.cpp)
-
-add_executable(test_axpy ${testfiles})
-
-target_include_directories(test_axpy PRIVATE
-    ${PROJECT_SOURCE_DIR}/include
-    ${CLBLAST_INCLUDE_DIR}
-    ${OPENCL_INCLUDE_DIR}
+add_executable(openblas_vclib_test openblas_vclib_test.c)
+target_link_libraries(openblas_vclib_test PRIVATE rindowopenblas.vclib)
+target_include_directories(openblas_vclib_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/src"
+    "${OPENBLAS_INCLUDE_DIR}"
 )
 
-target_link_libraries(test_axpy PRIVATE
-    rindowclblast.vclib
-    ${OPENCL_LIBRARY}
-    GTest::gtest_main
+set(OPENBLAS_DLL "${OPENBLAS_DIR}/bin/libopenblas.dll")
+if(NOT EXISTS "${OPENBLAS_DLL}")
+    message(FATAL_ERROR "Cannot find OpenBLAS DLL: ${OPENBLAS_DLL}")
+endif()
+add_custom_command(TARGET openblas_vclib_test POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${OPENBLAS_DLL}" "$<TARGET_FILE_DIR:openblas_vclib_test>"
 )
-
-include(GoogleTest)
-gtest_discover_tests(test_axpy)
-
-add_test(
-    NAME test_axpy
-    COMMAND test_axpy
-    CONFIGURATIONS Release
-)
+add_test(NAME openblas_vclib_test COMMAND openblas_vclib_test)
