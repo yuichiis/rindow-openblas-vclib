@@ -307,6 +307,8 @@ class OpenBLASClientGenerator
         $libname = $this->libname($type);
         // typedef
         $code  = $this->headersTemplate($type);
+        $code  .= $this->funcSpecialSubHeader($declare,$type);
+
         $code .= "static char msg_function_not_found[]  = \"{$funcname} not found\\n\";\n";
         $code .= "typedef {$return} (CALLBACK* PFN{$funcname})( /* {$funcname} */";
         $isNext = false;
@@ -359,6 +361,7 @@ class OpenBLASClientGenerator
         $code .= "    }\n";
         if(in_array($funcname,$this->funcSpecial)) {
             $code .= $this->funcSpecialSubTemplate($declare,$type);
+            $code .= "}\n";
             return $code;
         }
         if($return=='void') {
@@ -385,6 +388,21 @@ class OpenBLASClientGenerator
         return $code;
     }
 
+    public function funcSpecialSubHeader(array $declare,string $type) : string
+    {
+        $funcname = $declare['func'];
+        switch($funcname) {
+            case 'cblas_xerbla': {
+                $code =
+                "#include <stdarg.h>\n".
+                "#include <stdio.h>\n";
+                return $code;
+            }
+        }
+        return "";
+    }
+    #include <stdarg.h>
+    #include <stdio.h>
     public function funcSpecialSubTemplate(array $declare,string $type) : string
     {
         $funcname = $declare['func'];
@@ -404,11 +422,9 @@ class OpenBLASClientGenerator
             }
             default: {
                 echo "unknow special func {$funcname}\n";
-                return "";
             }
         }
-
-
+        return "";
     }
 
     function beginTemplate(string $type) : string
