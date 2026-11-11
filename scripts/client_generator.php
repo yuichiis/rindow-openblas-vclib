@@ -37,6 +37,11 @@ class OpenBLASClientGenerator
         'PUBLIC_API',
     ];
 
+    public array $funcComplexReturn = [
+        'openblas_complex_float','openblas_complex_double',
+        'lapack_complex_float','lapack_complex_double',
+    ];
+
     public string $preg_types;
     public string $preg_prefix;
     private string $destDir;
@@ -339,6 +344,9 @@ class OpenBLASClientGenerator
         $code .= "            WriteConsole(hStdOut, msg_function_not_found, sizeof(msg_function_not_found), NULL, NULL);\n";
         if($return=='void') {
             $code .= "            return;\n";
+        } elseif(in_array($return,$this->funcComplexReturn)) {
+            $code .= "            {$return} result = {0};\n";
+            $code .= "            return result;\n";
         } else {
             $code .= "            return 0;\n";
         }
