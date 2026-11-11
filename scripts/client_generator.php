@@ -5,18 +5,18 @@ class OpenBLASClientGenerator
     public array $excludeFuncs = [
         'openblas_setaffinity',
         'openblas_getaffinity',
-        'cblas_csrot',
-        'cblas_zdrot',
-        'cblas_crotg',
-        'cblas_zrotg',
-        'cblas_xerbla',
-        'cblas_sbstobf16',
-        'cblas_sbdtobf16',
-        'cblas_sbf16tos',
-        'cblas_dbf16tod',
-        'cblas_sbdot',
-        'cblas_sbgemv',
-        'cblas_sbgemm',
+        //'cblas_csrot',
+        //'cblas_zdrot',
+        //'cblas_crotg',
+        //'cblas_zrotg',
+        //'cblas_xerbla',
+        //'cblas_sbstobf16',
+        //'cblas_sbdtobf16',
+        //'cblas_sbf16tos',
+        //'cblas_dbf16tod',
+        //'cblas_sbdot',
+        //'cblas_sbgemv',
+        //'cblas_sbgemm',
     ];
 
     public array $funcDecrWord = [
@@ -41,6 +41,11 @@ class OpenBLASClientGenerator
         'openblas_complex_float','openblas_complex_double',
         'lapack_complex_float','lapack_complex_double',
     ];
+
+    public array $funcSpecial = [
+        'cblas_xerbla',
+    ];
+
 
     public string $preg_types;
     public string $preg_prefix;
@@ -352,6 +357,10 @@ class OpenBLASClientGenerator
         }
         $code .= "        }\n";
         $code .= "    }\n";
+        if(in_array($funcname,$this->funcSpecial)) {
+            $code .= $this->funcSpecialSubTemplate($declare,$type);
+            return $code;
+        }
         if($return=='void') {
             $code .= "    _g_{$funcname}(";
         } else {
@@ -374,6 +383,32 @@ class OpenBLASClientGenerator
         $code .= "    );\n";
         $code .= "}\n";
         return $code;
+    }
+
+    public function funcSpecialSubTemplate(array $declare,string $type) : string
+    {
+        $funcname = $declare['func'];
+        switch($funcname) {
+            case 'cblas_xerbla': {
+                $p = $declare['args'][0]["var"];
+                $rout = $declare['args'][1]["var"];
+                $form = $declare['args'][2]["var"];
+                $code =
+                "    char buf[512];\n".
+                "    va_list ap;\n".
+                "    va_start(ap, {$form});\n".
+                "    vsnprintf(buf, sizeof(buf), {$form}, ap);\n".
+                "    va_end(ap);\n".
+                "    _g_cblas_xerbla({$p}, {$rout}, \"%s\", buf);\n";
+                return $code;
+            }
+            default: {
+                echo "unknow special func {$funcname}\n";
+                return "";
+            }
+        }
+
+
     }
 
     function beginTemplate(string $type) : string
