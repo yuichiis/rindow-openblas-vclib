@@ -14,8 +14,7 @@ This library handles such dynamic name resolution on your behalf. By linking thi
 Requirements
 ------------
 
-- [CLBlast for Windows](https://github.com/OpenMathLib/OpenBLAS/releases)
-- [OpenCL-SDK](https://github.com/KhronosGroup/OpenCL-SDK)
+- [OpenBLAS](https://github.com/OpenMathLib/OpenBLAS/)
 - [Microsoft Visual Studio](https://visualstudio.microsoft.com/)
 
 How to setup pre-build binaries
@@ -25,9 +24,8 @@ How to setup pre-build binaries
 
 Download the pre-build binary file.
 
-- https://github.com/rindow/rindow-clblast-vclib/releases
-- https://github.com/CNugteren/CLBlast/releases
-- https://github.com/KhronosGroup/OpenCL-SDK/releases
+- https://github.com/rindow/rindow-openblas-vclib/releases
+- https://github.com/OpenMathLib/OpenBLAS/releases
 
 Unzip the file for Windows and copy the files to the directory set in PATH.
 
@@ -40,9 +38,8 @@ You can also build and use from source code.
 
 Download source code from release and unzip
 
-- https://github.com/rindow/rindow-clblast-vclib/releases
-- https://github.com/CNugteren/CLBlast/releases
-- https://github.com/KhronosGroup/OpenCL-SDK/releases
+- https://github.com/rindow/rindow-openblas-vclib/releases
+- https://github.com/OpenMathLib/OpenBLAS/releases
 
 ### Build and Install on Windows
 
@@ -50,7 +47,7 @@ Build with Visual Studio.
 
 ```shell
 C> cd \path\to\here
-C> cmake -S . -B build -DCLBLAST_DIR=/path/to/CLBlast/sdk/dir -DOPENCL_DIR=/path/to/OpenCL-SDK/dir
+C> cmake -S . -B build -DOPENBLAS_DIR=/path/to/OpenBLAS/sdk/dir
 C> cmake --build build --config Release
 C> cd build
 C> ctest -C Release
