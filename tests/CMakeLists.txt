@@ -3,20 +3,20 @@ if(NOT EXISTS "${OPENBLAS_DLL}")
     message(FATAL_ERROR "Cannot find OpenBLAS DLL: ${OPENBLAS_DLL}")
 endif()
 
-foreach(test_target IN ITEMS openblas_vclib_test openblas_all_routines_test)
-    if(test_target STREQUAL "openblas_vclib_test")
-        add_executable(${test_target} openblas_vclib_test.c)
-    else()
-        add_executable(${test_target} openblas_all_routines_test.c)
-    endif()
-    target_link_libraries(${test_target} PRIVATE rindowopenblas.vclib)
-    target_include_directories(${test_target} PRIVATE
-        "${PROJECT_SOURCE_DIR}/src"
-        "${OPENBLAS_INCLUDE_DIR}"
-    )
-    add_custom_command(TARGET ${test_target} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${OPENBLAS_DLL}" "$<TARGET_FILE_DIR:${test_target}>"
-    )
-    add_test(NAME ${test_target} COMMAND ${test_target})
-endforeach()
+add_executable(openblas_tests openblas_all_routines_test.cpp)
+target_link_libraries(openblas_tests PRIVATE
+    rindowopenblas.vclib
+    GTest::gtest_main
+)
+target_include_directories(openblas_tests PRIVATE
+    "${PROJECT_SOURCE_DIR}/src"
+    "${OPENBLAS_INCLUDE_DIR}"
+)
+target_compile_options(openblas_tests PRIVATE /EHsc)
+add_custom_command(TARGET openblas_tests POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${OPENBLAS_DLL}" "$<TARGET_FILE_DIR:openblas_tests>"
+)
+
+include(GoogleTest)
+gtest_discover_tests(openblas_tests)

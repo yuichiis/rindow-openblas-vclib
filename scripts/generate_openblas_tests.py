@@ -5,7 +5,8 @@ import re
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
-OUT = ROOT / "tests" / "openblas_all_routines_test.c"
+OUT = ROOT / "tests" / "openblas_all_routines_test.cpp"
+CBLAS_HEADER = Path("C:/OpenBLAS/OpenBLAS-0.3.33-x64/include/cblas.h")
 
 EXCLUDED = {
     # IEEE half precision and bfloat16 entry points (including mixed GEMM).
@@ -30,6 +31,7 @@ def read_signature(path):
     for declaration in raw.split(","):
         declaration = re.sub(r"/\*.*?\*/", "", declaration).strip()
         declaration = declaration.replace("OPENBLAS_CONST", "").strip()
+        declaration = re.sub(r"\s*\*\s*", " * ", declaration)
         tokens = declaration.split()
         arg_name = tokens[-1].lstrip("*")
         pointer_count = declaration.count("*")
@@ -38,14 +40,54 @@ def read_signature(path):
     return name, args
 
 
+def read_sdk_signature(name):
+    header = CBLAS_HEADER.read_text(encoding="utf-8", errors="replace")
+    match = re.search(r"\b" + re.escape(name) + r"\s*\(", header)
+    if not match:
+        return None
+    start = match.end()
+    depth = 1
+    end = start
+    while end < len(header) and depth:
+        if header[end] == "(":
+            depth += 1
+        elif header[end] == ")":
+            depth -= 1
+        end += 1
+    raw = header[start:end - 1].strip()
+    if raw == "void" or not raw:
+        return []
+    args = []
+    for declaration in raw.split(","):
+        declaration = re.sub(r"/\*.*?\*/", "", declaration).strip().rstrip(";")
+        declaration = declaration.replace("OPENBLAS_CONST", "").strip()
+        declaration = re.sub(r"\s*\*\s*", " * ", declaration)
+        tokens = declaration.split()
+        if not tokens:
+            continue
+        arg_name = tokens[-1].lstrip("*")
+        pointer_count = declaration.count("*")
+        arg_type = " ".join(tokens[:-1]).replace("const", "").strip()
+        args.append((arg_name, arg_type, pointer_count))
+    return args
+
+
 def value_for(routine, name, arg_type, pointer_count):
     if pointer_count:
-        normalized_type = arg_type.replace("const", "").strip()
+        normalized_type = arg_type.replace("const", "").replace("*", "").strip()
         if pointer_count > 1:
             if "float" in normalized_type:
-                return "(const float **)float_pointer_values"
+                return "(float **)float_pointer_values" if name.startswith("C_") else "(const float **)float_pointer_values"
             if "double" in normalized_type:
-                return "(const double **)double_pointer_values"
+                return "(double **)double_pointer_values" if name.startswith("C_") else "(const double **)double_pointer_values"
+            if "void" in normalized_type:
+                if routine.startswith("cblas_c"):
+                    pointers = "complex_float_pointer_values"
+                elif routine.startswith("cblas_z"):
+                    pointers = "complex_double_pointer_values"
+                else:
+                    pointers = "pointer_values"
+                return f"(void **) {pointers}" if name.startswith("C_") else f"(const void **) {pointers}"
             if routine.startswith("cblas_c"):
                 return "complex_float_pointer_values"
             if routine.startswith("cblas_z"):
@@ -77,29 +119,30 @@ def value_for(routine, name, arg_type, pointer_count):
             if routine.startswith("cblas_s"):
                 return "(void *)float_values"
         return "(void *)storage"
-    if "CBLAS_ORDER" in arg_type:
+    normalized_type = arg_type.replace("const", "").replace("*", "").strip()
+    if "CBLAS_ORDER" in normalized_type:
         return "CblasRowMajor"
-    if "CBLAS_TRANSPOSE" in arg_type:
+    if "CBLAS_TRANSPOSE" in normalized_type:
         return "CblasNoTrans"
-    if "CBLAS_UPLO" in arg_type:
+    if "CBLAS_UPLO" in normalized_type:
         return "CblasUpper"
-    if "CBLAS_DIAG" in arg_type:
+    if "CBLAS_DIAG" in normalized_type:
         return "CblasNonUnit"
-    if "CBLAS_SIDE" in arg_type:
+    if "CBLAS_SIDE" in normalized_type:
         return "CblasLeft"
-    if arg_type == "char" or "char" in arg_type:
+    if "char" in normalized_type:
         return '"Xgemm"'
-    if arg_type in ("float", "double"):
-        return "1.0f" if arg_type == "float" else "1.0"
-    if "blasint" in arg_type:
+    if normalized_type in ("float", "double"):
+        return "1.0f" if normalized_type == "float" else "1.0"
+    if "blasint" in normalized_type:
         if name == "group_count":
             return "0"
         if name in {"kl", "ku", "offset", "k1", "k2"}:
             return "0"
         return "1"
-    if "bfloat16" in arg_type:
+    if "bfloat16" in normalized_type:
         return "0"
-    if "enum" in arg_type:
+    if "enum" in normalized_type:
         return "0"
     return "0"
 
@@ -112,54 +155,70 @@ for source in sorted(SRC.glob("*.c")):
 
 lines = [
     "#include <Windows.h>",
-    "#include <stdio.h>",
+    "#include <gtest/gtest.h>",
     "#include <cblas.h>",
     "#include \"vclib.h\"",
     "",
-    "static double storage[4096];",
-    "static float float_values[4096];",
-    "static double double_values[4096];",
-    "static blasint int_values[4096];",
-    "static enum CBLAS_TRANSPOSE enum_values[4096];",
-    "static void *pointer_values[64];",
-    "static const float *float_pointer_values[64];",
-    "static const double *double_pointer_values[64];",
-    "static void *complex_float_pointer_values[64];",
-    "static void *complex_double_pointer_values[64];",
+    "class OpenBLASRoutineTest : public ::testing::Test {",
+    "protected:",
+    "    double storage[4096] = {};",
+    "    float float_values[4096] = {};",
+    "    double double_values[4096] = {};",
+    "    blasint int_values[4096] = {};",
+    "    enum CBLAS_TRANSPOSE enum_values[4096] = {};",
+    "    void *pointer_values[64] = {};",
+    "    const float *float_pointer_values[64] = {};",
+    "    const double *double_pointer_values[64] = {};",
+    "    void *complex_float_pointer_values[64] = {};",
+    "    void *complex_double_pointer_values[64] = {};",
     "",
-    "int main(void)",
-    "{",
-    "    size_t i;",
-    "    for (i = 0; i < sizeof(storage) / sizeof(storage[0]); ++i) storage[i] = 1.0;",
-    "    for (i = 0; i < sizeof(float_values) / sizeof(float_values[0]); ++i) float_values[i] = 1.0f;",
-    "    for (i = 0; i < sizeof(double_values) / sizeof(double_values[0]); ++i) double_values[i] = 1.0;",
-    "    for (i = 0; i < sizeof(int_values) / sizeof(int_values[0]); ++i) int_values[i] = 1;",
-    "    for (i = 0; i < sizeof(enum_values) / sizeof(enum_values[0]); ++i) enum_values[i] = CblasNoTrans;",
-    "    for (i = 0; i < sizeof(pointer_values) / sizeof(pointer_values[0]); ++i) pointer_values[i] = storage;",
-    "    for (i = 0; i < sizeof(float_pointer_values) / sizeof(float_pointer_values[0]); ++i) { float_pointer_values[i] = float_values; double_pointer_values[i] = double_values; complex_float_pointer_values[i] = float_values; complex_double_pointer_values[i] = double_values; }",
-    "    size_t called = 0, unavailable = 0;",
-    "    size_t not_invoked = 0;",
+    "    void SetUp() override {",
+    "        for (size_t i = 0; i < 4096; ++i) {",
+    "            storage[i] = 1.0;",
+    "            float_values[i] = 1.0f;",
+    "            double_values[i] = 1.0;",
+    "            int_values[i] = 1;",
+    "            enum_values[i] = CblasNoTrans;",
+    "        }",
+    "        for (size_t i = 0; i < 64; ++i) {",
+    "            pointer_values[i] = storage;",
+    "            float_pointer_values[i] = float_values;",
+    "            double_pointer_values[i] = double_values;",
+    "            complex_float_pointer_values[i] = float_values;",
+    "            complex_double_pointer_values[i] = double_values;",
+    "        }",
+    "    }",
+    "};",
     "",
 ]
 for name, args in wrappers:
-    values = ", ".join(value_for(name, n, t, p) for n, t, p in args)
-    # Confirm the symbol exists in the loaded DLL before exercising its wrapper.
-    lines += [
-        f'    if (rindow_load_libopenblas_func("{name}") == NULL) {{',
-        f'        fprintf(stderr, "SKIP {name}: export unavailable in this OpenBLAS DLL\\n");',
-        "        ++unavailable;",
-        "    } else {",
+    sdk_args = read_sdk_signature(name)
+    effective_args = args if sdk_args is None else [
+        (source_arg[0], sdk_arg[1], sdk_arg[2])
+        for source_arg, sdk_arg in zip(args, sdk_args)
     ]
+    values = ", ".join(value_for(name, n, t, p) for n, t, p in effective_args)
+    test_name = "".join(part.capitalize() for part in name.split("_"))
     lines += [
-        f"        {name}({values});",
-        "        ++called;",
-    ]
-    lines += [
+        f"TEST_F(OpenBLASRoutineTest, {test_name}) {{",
+        f'    if (rindow_load_libopenblas_func("{name}") == nullptr) {{',
+        f'        GTEST_SKIP() << "{name} is not exported by the OpenBLAS DLL";',
         "    }",
+        f"    {name}({values});",
+        "}",
+        "",
     ]
 lines += [
-    '    printf("Called %llu wrappers; %llu exports unavailable; %llu grouped GEMM calls not invoked.\\n", (unsigned long long)called, (unsigned long long)unavailable, (unsigned long long)not_invoked);',
-    "    return 0;",
+    "TEST_F(OpenBLASRoutineTest, SaxpyComputesExpectedResult) {",
+    "    const float x[] = {1.0f, 2.0f, 3.0f};",
+    "    float y[] = {10.0f, 20.0f, 30.0f};",
+    '    if (rindow_load_libopenblas_func("cblas_saxpy") == nullptr) {',
+    '        GTEST_SKIP() << "cblas_saxpy is not exported by the OpenBLAS DLL";',
+    "    }",
+    "    cblas_saxpy(3, 2.0f, x, 1, y, 1);",
+    "    EXPECT_FLOAT_EQ(12.0f, y[0]);",
+    "    EXPECT_FLOAT_EQ(24.0f, y[1]);",
+    "    EXPECT_FLOAT_EQ(36.0f, y[2]);",
     "}",
     "",
 ]
