@@ -33,5 +33,10 @@ if(BUILD_TESTING)
     add_subdirectory(tests)
 endif()
 
-install(TARGETS rindowopenblas.vclib ARCHIVE DESTINATION lib)
-install(FILES src/vclib.h DESTINATION include)
+install(TARGETS rindowopenblas.vclib
+    ARCHIVE DESTINATION lib
+    COMPONENT ${PROJECT_NAME}
+)
+
+set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+include(Packing)
