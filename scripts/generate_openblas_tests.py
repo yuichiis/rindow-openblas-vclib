@@ -15,6 +15,14 @@ EXCLUDED = {
     "cblas_sbgemm_batch",
     "cblas_sbgemm_batch_strided",
     "cblas_shgemm",
+    "cblas_sbgemv",
+    "cblas_sbgemm",
+    "cblas_sbdot",
+    "cblas_sbstobf16",
+    "cblas_sbdtobf16",
+    "cblas_sbf16tos",
+    "cblas_dbf16tod",
+    "cblas_xerbla",
 }
 
 

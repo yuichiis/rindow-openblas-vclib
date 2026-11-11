@@ -244,11 +244,25 @@ TEST_F(OpenBLASRoutineTest, CblasComatcopy) {
     cblas_comatcopy(CblasRowMajor, CblasNoTrans, 1, 1, (float *)float_values, (float *)float_values, 1, (float *)float_values, 1);
 }
 
+TEST_F(OpenBLASRoutineTest, CblasCrotg) {
+    if (rindow_load_libopenblas_func("cblas_crotg") == nullptr) {
+        GTEST_SKIP() << "cblas_crotg is not exported by the OpenBLAS DLL";
+    }
+    cblas_crotg((void *)float_values, (void *)float_values, (float *)float_values, (void *)float_values);
+}
+
 TEST_F(OpenBLASRoutineTest, CblasCscal) {
     if (rindow_load_libopenblas_func("cblas_cscal") == nullptr) {
         GTEST_SKIP() << "cblas_cscal is not exported by the OpenBLAS DLL";
     }
     cblas_cscal(1, (void *)float_values, (void *)float_values, 1);
+}
+
+TEST_F(OpenBLASRoutineTest, CblasCsrot) {
+    if (rindow_load_libopenblas_func("cblas_csrot") == nullptr) {
+        GTEST_SKIP() << "cblas_csrot is not exported by the OpenBLAS DLL";
+    }
+    cblas_csrot(1, (void *)float_values, 1, (void *)float_values, 1, 1.0f, 1.0f);
 }
 
 TEST_F(OpenBLASRoutineTest, CblasCsscal) {
@@ -1196,6 +1210,13 @@ TEST_F(OpenBLASRoutineTest, CblasZdotuSub) {
     cblas_zdotu_sub(1, (void *)double_values, 1, (void *)double_values, 1, (void *)double_values);
 }
 
+TEST_F(OpenBLASRoutineTest, CblasZdrot) {
+    if (rindow_load_libopenblas_func("cblas_zdrot") == nullptr) {
+        GTEST_SKIP() << "cblas_zdrot is not exported by the OpenBLAS DLL";
+    }
+    cblas_zdrot(1, (void *)double_values, 1, (void *)double_values, 1, 1.0, 1.0);
+}
+
 TEST_F(OpenBLASRoutineTest, CblasZdscal) {
     if (rindow_load_libopenblas_func("cblas_zdscal") == nullptr) {
         GTEST_SKIP() << "cblas_zdscal is not exported by the OpenBLAS DLL";
@@ -1355,6 +1376,13 @@ TEST_F(OpenBLASRoutineTest, CblasZomatcopy) {
         GTEST_SKIP() << "cblas_zomatcopy is not exported by the OpenBLAS DLL";
     }
     cblas_zomatcopy(CblasRowMajor, CblasNoTrans, 1, 1, (double *)double_values, (double *)double_values, 1, (double *)double_values, 1);
+}
+
+TEST_F(OpenBLASRoutineTest, CblasZrotg) {
+    if (rindow_load_libopenblas_func("cblas_zrotg") == nullptr) {
+        GTEST_SKIP() << "cblas_zrotg is not exported by the OpenBLAS DLL";
+    }
+    cblas_zrotg((void *)double_values, (void *)double_values, (double *)double_values, (void *)double_values);
 }
 
 TEST_F(OpenBLASRoutineTest, CblasZscal) {
